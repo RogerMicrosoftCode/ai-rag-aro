@@ -15,8 +15,6 @@ Antes de comenzar con la instalación, tenemos que analizar si tenemos o no una 
 
 #### Docker
 
-Tenemos que tener Docker o Docker Desktop instalado, te recomiendo ver este video para instalar todo: https://www.youtube.com/watch?v=ZyBBv1JmnWQ
-
 Una vez instalado y prendido el Docker Desktop si lo estamos utilizando, vamos a ejecutar en esta misma carpeta:
 
 ```
