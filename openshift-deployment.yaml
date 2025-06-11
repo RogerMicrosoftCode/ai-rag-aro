@@ -1,0 +1,153 @@
+iapiVersion: template.openshift.io/v1
+kind: Template
+metadata:
+  name: ip-container-app-template
+  annotations:
+    description: "Aplicación web que muestra la IP pública del contenedor"
+    tags: "node,ip,container"
+    iconClass: "icon-nodejs"
+    openshift.io/display-name: "IP Container App"
+    openshift.io/documentation-url: "https://github.com/yourusername/ip-container-app"
+    openshift.io/support-url: "https://github.com/yourusername/ip-container-app/issues"
+objects:
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    replicas: ${{REPLICAS}}
+    selector:
+      matchLabels:
+        app: ${NAME}
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+    template:
+      metadata:
+        labels:
+          app: ${NAME}
+      spec:
+        containers:
+        - name: ${NAME}
+          image: image-registry.openshift-image-registry.svc:5000/${PROJECT_NAME}/${NAME}:latest
+          ports:
+          - containerPort: 3000
+            protocol: TCP
+          resources:
+            limits:
+              memory: ${MEMORY_LIMIT}
+            requests:
+              memory: ${MEMORY_REQUEST}
+          env:
+          - name: PORT
+            value: "3000"
+          - name: NODE_ENV
+            value: ${NODE_ENV}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    ports:
+    - name: 3000-tcp
+      port: 3000
+      protocol: TCP
+      targetPort: 3000
+    selector:
+      app: ${NAME}
+    type: ClusterIP
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    host: ${APPLICATION_DOMAIN}
+    port:
+      targetPort: 3000-tcp
+    to:
+      kind: Service
+      name: ${NAME}
+      weight: 100
+    tls:
+      termination: ${ROUTE_TLS_TERMINATION}
+      insecureEdgeTerminationPolicy: Redirect
+    wildcardPolicy: None
+- apiVersion: build.openshift.io/v1
+  kind: BuildConfig
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec:
+    output:
+      to:
+        kind: ImageStreamTag
+        name: ${NAME}:latest
+    source:
+      binary: {}
+      type: Binary
+    strategy:
+      dockerStrategy:
+        from:
+          kind: ImageStreamTag
+          name: nodejs:18-ubi8
+          namespace: openshift
+      type: Docker
+    triggers:
+    - type: ConfigChange
+    - type: ImageChange
+      imageChange: {}
+- apiVersion: image.openshift.io/v1
+  kind: ImageStream
+  metadata:
+    name: ${NAME}
+    labels:
+      app: ${NAME}
+  spec: {}
+parameters:
+- name: NAME
+  displayName: Nombre de la Aplicación
+  description: El nombre asignado a todos los objetos definidos en esta plantilla
+  value: ip-container-app
+  required: true
+- name: PROJECT_NAME
+  displayName: Nombre del Proyecto
+  description: El nombre del proyecto OpenShift donde se desplegará la aplicación
+  required: true
+- name: APPLICATION_DOMAIN
+  displayName: Dominio de la Aplicación
+  description: El dominio de la ruta expuesta externamente para esta aplicación
+  value: ""
+- name: REPLICAS
+  displayName: Número de Réplicas
+  description: Número de instancias de la aplicación a desplegar
+  value: "1"
+- name: MEMORY_LIMIT
+  displayName: Límite de Memoria
+  description: Límite máximo de memoria para el contenedor
+  value: 512Mi
+  required: true
+- name: MEMORY_REQUEST
+  displayName: Solicitud de Memoria
+  description: Solicitud inicial de memoria para el contenedor
+  value: 256Mi
+  required: true
+- name: NODE_ENV
+  displayName: Entorno Node.js
+  description: Entorno de Node.js para la aplicación
+  value: production
+  required: true
+- name: ROUTE_TLS_TERMINATION
+  displayName: Terminación TLS de la Ruta
+  description: Tipo de terminación TLS para la ruta
+  value: edge
+labels:
+  template: ip-container-app-template
